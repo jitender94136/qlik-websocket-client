@@ -19,7 +19,7 @@ import javax.websocket.Session;
 import org.glassfish.tyrus.client.ClientManager;
 
 @ClientEndpoint
-public class WordgameClientEndpoint {
+public class QlikClientEndpoint {
 
     private static CountDownLatch latch;
     private Logger logger = Logger.getLogger(this.getClass().getName());
@@ -57,7 +57,7 @@ public class WordgameClientEndpoint {
 
         ClientManager client = ClientManager.createClient();
         try {
-            client.connectToServer(WordgameClientEndpoint.class, new URI("ws://localhost:8025/websockets/game"));
+            client.connectToServer(QlikClientEndpoint.class, new URI("ws://localhost:8025/websockets/game"));
             latch.await();
 
         } catch (DeploymentException | URISyntaxException | InterruptedException e) {

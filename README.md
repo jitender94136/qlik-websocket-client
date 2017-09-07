@@ -1,0 +1,1 @@
+# qlik-websocket-client

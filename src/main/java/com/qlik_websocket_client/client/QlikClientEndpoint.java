@@ -13,18 +13,27 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
+
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 import javax.websocket.ClientEndpoint;
+import javax.websocket.ClientEndpointConfig;
 import javax.websocket.CloseReason;
 import javax.websocket.DeploymentException;
 import javax.websocket.OnClose;
 import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
+
+import org.glassfish.grizzly.ssl.SSLContextConfigurator;
+import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
+import org.glassfish.tyrus.client.ClientProperties;
+import org.glassfish.tyrus.client.SslContextConfigurator;
+import org.glassfish.tyrus.client.SslEngineConfigurator;
 
 @ClientEndpoint
 public class QlikClientEndpoint {
@@ -35,46 +44,52 @@ public class QlikClientEndpoint {
     @OnOpen
     public void onOpen(Session session) {
         logger.info("Connected ... " + session.getId());
-        try {
-            session.getBasicRemote().sendText("start");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        System.out.println("in the on open method ");
+//        try {
+//            session.getBasicRemote().sendText("start");
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
     }
 
     @OnMessage
     public void onMessage(String response, Session session) {
         //BufferedReader bufferRead = new BufferedReader(new InputStreamReader(System.in));
-       
+    		logger.info("Session Id ...." + session.getId());
             logger.info("Response from server ...." + response);
+            System.out.println("in the on message method ");
            
     }
+    
+    
 
     @OnClose
     public void onClose(Session session, CloseReason closeReason) {
+    	System.out.println("in the on close method ");
         logger.info(String.format("Session %s close because of %s", session.getId(), closeReason));
         latch.countDown();
     }
 
     public static void main(String[] args) {
         latch = new CountDownLatch(1);
-
         ClientManager client = ClientManager.createClient();
        
-        
         try {
-            client.connectToServer(QlikClientEndpoint.class, new URI("ws://localhost:8025/websockets/game"));
-            latch.await();
+        	System.out.println("before the hit");
+        	client.connectToServer(QlikClientEndpoint.class, new URI("ws://localhost:4848/app"));
+        	System.out.println("after hitting the server.......");
+        	latch.await();
 
-        } catch (DeploymentException | URISyntaxException | InterruptedException e) {
+        } catch (Exception e) {
+        	e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
     
-	 public  SSLSocketFactory setCertificateConfiguration() {
-						SSLSocketFactory sslSocketFactory = null;
-						String qlikCertificatePath = "/opt/certificates/analytics.1viewinsights.com/";
+	 public static SSLContext setCertificateConfiguration() {
+						String qlikCertificatePath = "E:/opt/certificates/analytics.1viewinsights.com/";
 						String qlikPassword = "testtest";
+						SSLContext  context = null;
 							try {
 									/************** BEGIN Certificate Acquisition **************/
 									String certFolder = qlikCertificatePath.trim(); // This is a folder reference to
@@ -91,7 +106,7 @@ public class QlikClientEndpoint {
 									KeyManagerFactory kmf = KeyManagerFactory
 											.getInstance(KeyManagerFactory.getDefaultAlgorithm());
 									kmf.init(ks, proxyCertPass.toCharArray());
-									SSLContext context = SSLContext.getInstance("SSL");
+									context = SSLContext.getInstance("SSL");
 									KeyStore ksTrust = KeyStore.getInstance("JKS");
 									ksTrust.load(new FileInputStream(rootCert),
 											rootCertPass.toCharArray());
@@ -99,7 +114,7 @@ public class QlikClientEndpoint {
 											.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 									tmf.init(ksTrust);
 									context.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-									sslSocketFactory = context.getSocketFactory();
+									
 									/************** END Certificate configuration for use in connection **************/
 						    }	catch (KeyStoreException e) { e.printStackTrace(); } 
 										catch (IOException e) { e.printStackTrace(); } 
@@ -107,6 +122,6 @@ public class QlikClientEndpoint {
 										catch (NoSuchAlgorithmException e) { e.printStackTrace(); } 
 										catch (UnrecoverableKeyException e) { e.printStackTrace(); } 
 										catch (KeyManagementException e) { e.printStackTrace(); } 
-										return sslSocketFactory;
+										return context;
 							}
 }

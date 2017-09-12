@@ -39,6 +39,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.neovisionaries.ws.client.*;
+import com.qlik_websocket_client.email.EmailSender;
+import com.qlik_websocket_client.email.MailMessage;
 import com.qlik_websocket_client.writer.WriteCSV;
 
 
@@ -119,7 +121,8 @@ public class EchoClient
 		        getHyperCubeData(ws);
 		        Thread.sleep(5000);
 		        converHyperCubeToTable(headers);
-	    }  
+		        sendMail();
+		}  
         
         
 
@@ -372,12 +375,12 @@ public static void exportData(WebSocket ws) {
         for(int i = 0; i < qDimensions.length(); i++) {
         			JSONArray labels = qDimensions.getJSONObject(i).getJSONObject("qDef").getJSONArray("qFieldLabels");
         			if(labels.length() > 0) {		
-        				headers.append(labels.getString(0));
+        				headers.append(","+labels.getString(0));
         			}		
         }
         JSONArray qMeasures = qHyperCubDefinition.getJSONArray("qMeasures");
         for(int i = 0; i < qMeasures.length(); i++) {
-        				headers.append(qMeasures.getJSONObject(i).getJSONObject("qDef").getString("qLabel"));
+        				headers.append(","+qMeasures.getJSONObject(i).getJSONObject("qDef").getString("qLabel"));
         }
 	}
     
@@ -403,4 +406,35 @@ public static void exportData(WebSocket ws) {
            }
 
        }    
+    
+    public static void sendMail() {
+    	try {
+				MailMessage message = new MailMessage();
+				message.setSender("OnePrinting Team");
+				message.setInternetAddress("no-reply@channelplay.in");
+				String emailId = "jitender.singh1@channelplay.in";
+				message.setRecipientTo(emailId);
+				String ccEmailIds = "lalit.giani@channelplay.in";
+				System.out.println(ccEmailIds);
+				message.setRecipientCC(ccEmailIds);
+				StringBuilder mailBody = new StringBuilder();
+				mailBody.append("Hi Team \n");
+				mailBody.append("This is a test mail.\n");
+				mailBody.append("Please Ignore.\n");
+				message.setTextMessage(mailBody.toString());
+				message.setSubject("Test Mail From OnePrinting");
+				File[] files = new File[1];
+				files[0] = new File("E:/Github3/Output.csv");
+				message.setFileAttachment(files);
+				String fileAttachmentContentType [] = new String[]  {"text/csv"};
+				message.setFileAttachmentContentType(fileAttachmentContentType);
+				String filesName[] = new String[] {"TestFile.csv"};
+				message.setFileAttachmentFileName(filesName);
+				System.out.println(".................before sending mail...........");
+				EmailSender.sendMail(message);
+    	} catch(Exception e) {
+    			e.printStackTrace();
+    	}
+    }
+    
 }

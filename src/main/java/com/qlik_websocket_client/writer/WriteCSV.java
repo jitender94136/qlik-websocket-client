@@ -13,7 +13,7 @@ public class WriteCSV {
 		// open file input stream
 		BufferedWriter writer = null;
 		FileWriter fwriter = null; 
-		String FILE_HEADER = headers.toString();
+		String FILE_HEADER = headers.toString().substring(1);
 		try {
 						System.out.println("Generating the CSV file...........");
 						fwriter = new FileWriter("E:/Github3/Output.csv");

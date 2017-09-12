@@ -17,15 +17,21 @@ package com.qlik_websocket_client.nvclient;
  * License.
  */
 import java.io.*;
+import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
+import java.util.List;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
@@ -54,6 +60,8 @@ import com.neovisionaries.ws.client.*;
  */
 public class EchoClient
 {
+	//Response from websocket.
+	private static  String message = null;
     /**
      * The echo server on websocket.org.
      */
@@ -63,7 +71,6 @@ public class EchoClient
      * The timeout value in milliseconds for socket connection.
      */
     private static final int TIMEOUT = 5000;
-
 
     /**
      * The entry point of this command line application.
@@ -94,18 +101,100 @@ public class EchoClient
 //            		ws.sendText(text);
 //            System.out.println("after sending text to server ");		
 //        }
-			        JSONObject msg = new JSONObject();
-			        msg.put("jsonrpc", "2.0");
-					msg.put(	"id", 1);
-			        msg.put(	"method", "GetDocList");
-			        msg.put(	"handle", -1);
-			        JSONArray jsonArr = new JSONArray();
-			        msg.put("params", jsonArr);
-			        ws.sendText(msg.toString());
-        // Close the web socket.
-       // ws.disconnect();
+        if(ws.isOpen()) {
+        		System.out.println("starting hits.-------------");
+		        getDocList(ws);
+		        Thread.sleep(3000);
+		        openDoc(ws);
+		        Thread.sleep(3000);
+		        getAllInfos(ws);
+		        Thread.sleep(3000);
+		        getObject(ws);
+		        Thread.sleep(3000);
+		        exportData(ws);
+		        Thread.sleep(3000);
+		        JSONObject jsonObj = new JSONObject(message);
+		        String resourceURL = "https://analytics.1viewinsights.com"+(String)jsonObj.getJSONObject("result").get("qUrl");
+		        System.out.println(resourceURL);
+		        URL url = new URL("https://analytics.1viewinsights.com:4243/qps/prodproxy/ticket?xrfkey=" + "7rBHABt65vFflaZ7");
+			    HttpsURLConnection connection = (HttpsURLConnection)url.openConnection();
+			    SSLSocketFactory sslSocketFactory = setCertificateConfiguration();
+			    connection.setSSLSocketFactory(sslSocketFactory);
+			    connection.setRequestProperty("x-qlik-xrfkey", "7rBHABt65vFflaZ7");
+				connection.setDoOutput(true);
+				connection.setDoInput(true);
+				connection.setRequestProperty("Content-Type", "application/json");
+				connection.setRequestProperty("Accept", "application/json");
+				connection.setRequestMethod("POST");
+				
+				connection.setHostnameVerifier(new HostnameVerifier()
+				{      
+				    public boolean verify(String hostname, SSLSession session)
+				    {
+				        return true;
+				    }
+				});
+				String userName = "GOPAL";
+				String userDirectory = "QLIKSRV";
+				String body = "{ 'UserId':'" + userName + "','UserDirectory':'" + userDirectory + "',";
+				body += "'Attributes': [],";
+				body += "}";
+				System.out.println("Payload: " + body);
+				
+				OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
+				wr.write(body);
+				wr.flush(); // Get the response from the QPS BufferedReader
+				BufferedReader inputStream = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+				StringBuilder builder = new StringBuilder();
+				String inputLine;
+				while ((inputLine = inputStream.readLine()) != null) {
+					builder.append(inputLine);
+				}
+				inputStream.close();
+				String data = builder.toString();
+				System.out.println("----------------------------");
+				System.out.println("response from the api hit "+data);
+				System.out.println("----------------------------");					
+				String ticketKey = getTicketFromResponse(data);
+				connection.disconnect();
+				url = new URL(resourceURL+"?qlikTicket="+ticketKey);
+				connection = (HttpsURLConnection)url.openConnection();
+				print_content(connection);
+		        
+	    }  
+        
+        
+
+// Close the web socket.
+// ws.disconnect();
     }
 
+    
+	public static  String getTicketFromResponse(String jsonData) {
+		 if(jsonData==null || jsonData.length()==0) {
+			return null;
+		 }
+		 jsonData = jsonData.replace("{","");
+		 jsonData = jsonData.replace("\"","");
+		 String[] data1 = new String[7];
+		 data1 = jsonData.split(",");
+		
+		List<TicketDto> ticketData = new ArrayList<TicketDto>();
+		String ticketKey = "";
+		for(int i = 0 ;i<data1.length;i++){
+			TicketDto dto = new TicketDto();
+			String[] obj = new String[2];
+			obj = data1[i].split(":");
+			dto.setKey( obj[0]);
+			dto.setVal(obj[1]);
+			
+			ticketData.add(dto);
+			if(i==3){
+				ticketKey = obj[1];
+			}
+		}
+		return ticketKey;
+	}
 
     /**
      * Connect to the server.
@@ -120,9 +209,10 @@ public class EchoClient
             .addListener(new WebSocketAdapter() {
                 // A text message arrived from the server.
                 public void onTextMessage(WebSocket websocket, String message) {
-                    System.out.println("before message");
+                    System.out.println("--------------------------------before response----------------------------");
                 	System.out.println(message);
-                	System.out.println("after message");
+                	EchoClient.message = message;
+                	System.out.println("--------------------------------after response------------------------------");
                 }
                 public void onConnected(WebSocket websocket, java.util.Map headers) {
                 	System.out.println("websocket connected......");
@@ -146,7 +236,7 @@ public class EchoClient
                 
             })
             .addExtension(WebSocketExtension.PERMESSAGE_DEFLATE)
-            .addHeader("X-Qlik-User","UserDirectory=internal; UserId=sa_engine")
+            .addHeader("X-Qlik-User","UserDirectory=QLISRV; UserId=GOPAL")
             .connect();
         System.out.println(ws.getAgreedProtocol() +"  "+ws.isOpen());
         if(ws.isOpen()) {
@@ -156,7 +246,7 @@ public class EchoClient
     }
 
     
-	public static  SSLSocketFactory setCertificateConfiguration() {
+    public static  SSLSocketFactory setCertificateConfiguration() {
 					SSLSocketFactory sslSocketFactory = null;
 					String qlikCertificatePath = "E:/opt/certificates/analytics.1viewinsights.com/";
 					String qlikPassword = "testtest";
@@ -203,4 +293,126 @@ public class EchoClient
     {
         return new BufferedReader(new InputStreamReader(System.in));
     }
+    
+    
+    //This method is going to return only published apps
+    public static void getDocList(WebSocket ws) {
+    				System.out.println("---------------------GETDOCLIST----------------");
+			    	JSONObject msg = new JSONObject();
+			        msg.put("jsonrpc", "2.0");
+					msg.put(	"id", 1);
+			        msg.put(	"method", "GetDocList");
+			        msg.put(	"handle", -1);
+			        JSONArray jsonArr = new JSONArray();
+			        msg.put("params", jsonArr);
+			        ws.sendText(msg.toString());
+			        
+			       
+    }
+   
+    
+    public static void openDoc(WebSocket ws) {
+    		System.out.println("---------------------------------------OPEN DOC----------------------");
+    		JSONObject msg = new JSONObject();
+    		msg.put("method", "OpenDoc");
+    		msg.put("handle", -1);
+    		JSONArray jsonArray = new JSONArray();
+    		jsonArray.put("d9a01504-d14d-42dc-abe6-75f0824a18db");
+    		msg.put("params",jsonArray);
+    		msg.put("outKey", -1);
+    		msg.put("jsonrpc", "2.0");
+    		msg.put("id", 2);
+    		ws.sendText(msg.toString());
+    }
+    
+    public static void getAllInfos(WebSocket ws) {
+    		System.out.println("---getALLINFOS-----");
+    			JSONObject msg = new JSONObject();
+    			msg.put("handle", 1);
+    			msg.put("method", "GetAllInfos");
+    			JSONArray jsonArray = new JSONArray();
+    			System.out.println(jsonArray);
+    			msg.put("params", jsonArray);
+    			msg.put("outKey", -1);
+    			msg.put("jsonrpc", "2.0");
+    			msg.put("id", 3);
+    			ws.sendText(msg.toString());
+    	
+    }
+    
+    public static void getObject(WebSocket ws) {
+    			System.out.println("---getObject-----");
+    			JSONObject msg = new JSONObject();
+    			msg.put("handle",1);
+    			msg.put("method","GetObject");
+    			msg.put("params" , new JSONObject().put("qId","CXgReb"));
+		    	msg.put("outKey", -1);
+		    	msg.put("jsonrpc", "2.0");
+		    	msg.put("id", 4);
+		    	ws.sendText(msg.toString());
+		    	
+    }
+    
+    public static void exportData(WebSocket ws) {
+			    	System.out.println("-------------------------- Export Data -------------------");
+			    	JSONObject msg = new JSONObject();
+			    	msg.put("handle", 2);
+			    	msg.put("method", "ExportData");
+			    	JSONObject params = new JSONObject();
+			    	params.put("qFileType", 0);
+			    	params.put("qPath", "/qHyperCubeDef");
+			    	params.put("qFileName", "abc.csv");
+			    	params.put(	"qExportState", 0);
+			    	msg.put("params",params); 
+			        ws.sendText(msg.toString());	
+    }
+    
+   
+    private static void print_content(HttpsURLConnection con){
+    	if(con!=null){
+
+    	try {
+
+    	   System.out.println("****** Content of the URL ********");
+    	   BufferedReader br =
+    		new BufferedReader(
+    			new InputStreamReader(con.getInputStream()));
+
+    	   String input;
+
+    	   while ((input = br.readLine()) != null){
+    	      System.out.println(input);
+    	   }
+    	   br.close();
+
+    	} catch (IOException e) {
+    	   e.printStackTrace();
+    	}
+
+           }
+
+       }
+
+    public static class TicketDto {
+    	
+    	private String key;
+    	private String val;
+    	public String getKey() {
+    		return key;
+    	}
+    	public void setKey(String key) {
+    		this.key = key;
+    	}
+    	public String getVal() {
+    		return val;
+    	}
+    	public void setVal(String val) {
+    		this.val = val;
+    	}
+
+
+    	
+    }
+
+    
 }

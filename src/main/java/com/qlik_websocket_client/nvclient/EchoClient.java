@@ -39,6 +39,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.neovisionaries.ws.client.*;
+import com.qlik_websocket_client.writer.WriteCSV;
 
 
 /**
@@ -111,56 +112,13 @@ public class EchoClient
 		        Thread.sleep(3000);
 		        getObject(ws);
 		        Thread.sleep(3000);
-		        exportData(ws);
+		        getProperties(ws);
 		        Thread.sleep(3000);
-		        JSONObject jsonObj = new JSONObject(message);
-		        String resourceURL = "https://analytics.1viewinsights.com"+(String)jsonObj.getJSONObject("result").get("qUrl");
-		        System.out.println(resourceURL);
-		        URL url = new URL("https://analytics.1viewinsights.com:4243/qps/prodproxy/ticket?xrfkey=" + "7rBHABt65vFflaZ7");
-			    HttpsURLConnection connection = (HttpsURLConnection)url.openConnection();
-			    SSLSocketFactory sslSocketFactory = setCertificateConfiguration();
-			    connection.setSSLSocketFactory(sslSocketFactory);
-			    connection.setRequestProperty("x-qlik-xrfkey", "7rBHABt65vFflaZ7");
-				connection.setDoOutput(true);
-				connection.setDoInput(true);
-				connection.setRequestProperty("Content-Type", "application/json");
-				connection.setRequestProperty("Accept", "application/json");
-				connection.setRequestMethod("POST");
-				
-				connection.setHostnameVerifier(new HostnameVerifier()
-				{      
-				    public boolean verify(String hostname, SSLSession session)
-				    {
-				        return true;
-				    }
-				});
-				String userName = "GOPAL";
-				String userDirectory = "QLIKSRV";
-				String body = "{ 'UserId':'" + userName + "','UserDirectory':'" + userDirectory + "',";
-				body += "'Attributes': [],";
-				body += "}";
-				System.out.println("Payload: " + body);
-				
-				OutputStreamWriter wr = new OutputStreamWriter(connection.getOutputStream());
-				wr.write(body);
-				wr.flush(); // Get the response from the QPS BufferedReader
-				BufferedReader inputStream = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-				StringBuilder builder = new StringBuilder();
-				String inputLine;
-				while ((inputLine = inputStream.readLine()) != null) {
-					builder.append(inputLine);
-				}
-				inputStream.close();
-				String data = builder.toString();
-				System.out.println("----------------------------");
-				System.out.println("response from the api hit "+data);
-				System.out.println("----------------------------");					
-				String ticketKey = getTicketFromResponse(data);
-				connection.disconnect();
-				url = new URL(resourceURL+"?qlikTicket="+ticketKey);
-				connection = (HttpsURLConnection)url.openConnection();
-				print_content(connection);
-		        
+		        StringBuilder  headers = new StringBuilder();
+		        retreiveHeaders(headers);
+		        getHyperCubeData(ws);
+		        Thread.sleep(5000);
+		        converHyperCubeToTable(headers);
 	    }  
         
         
@@ -170,33 +128,12 @@ public class EchoClient
     }
 
     
-	public static  String getTicketFromResponse(String jsonData) {
-		 if(jsonData==null || jsonData.length()==0) {
-			return null;
-		 }
-		 jsonData = jsonData.replace("{","");
-		 jsonData = jsonData.replace("\"","");
-		 String[] data1 = new String[7];
-		 data1 = jsonData.split(",");
-		
-		List<TicketDto> ticketData = new ArrayList<TicketDto>();
-		String ticketKey = "";
-		for(int i = 0 ;i<data1.length;i++){
-			TicketDto dto = new TicketDto();
-			String[] obj = new String[2];
-			obj = data1[i].split(":");
-			dto.setKey( obj[0]);
-			dto.setVal(obj[1]);
-			
-			ticketData.add(dto);
-			if(i==3){
-				ticketKey = obj[1];
-			}
-		}
-		return ticketKey;
-	}
+	
+   
 
-    /**
+
+
+	/**
      * Connect to the server.
      */
     private static WebSocket connect() throws Exception
@@ -244,6 +181,32 @@ public class EchoClient
         }
         return ws;
     }
+    
+    
+    public static void converHyperCubeToTable(StringBuilder headers) {
+    		
+    	 	JSONObject jsonObj = new JSONObject(message);
+	        JSONObject result =  jsonObj.getJSONObject("result");
+	        JSONObject arrayObj = (JSONObject)result.getJSONArray("qDataPages").get(0);
+	        JSONArray qMatrixArray = arrayObj.getJSONArray("qMatrix");
+	        JSONObject qAreaObject = arrayObj.getJSONObject("qArea");
+	        int width  = qAreaObject.getInt("qWidth");
+	        List<List<String>> stringList = new ArrayList<>();
+	        for(int i = 0; i < qMatrixArray.length(); i++) {
+	        			System.out.println(qMatrixArray.getJSONArray(i).toString());
+	        			JSONArray row = qMatrixArray.getJSONArray(i);
+	        			System.out.println(row.toString());
+	        			List<String> qTextList = new ArrayList<>();
+	        			for(int j = 0; j < width; j++) {
+	        					String qText = row.getJSONObject(j).getString("qText");
+	        					qTextList.add(qText);
+	        			}
+	        			stringList.add(qTextList);
+	        }
+	        System.out.println("Size of the list "+stringList.size());
+	        System.out.println("headers ---> "+headers.toString());
+	        WriteCSV.writeCSV(headers,stringList);
+	}
 
     
     public static  SSLSocketFactory setCertificateConfiguration() {
@@ -306,8 +269,6 @@ public class EchoClient
 			        JSONArray jsonArr = new JSONArray();
 			        msg.put("params", jsonArr);
 			        ws.sendText(msg.toString());
-			        
-			       
     }
    
     
@@ -353,7 +314,43 @@ public class EchoClient
 		    	
     }
     
-    public static void exportData(WebSocket ws) {
+    
+    public static void getProperties(WebSocket ws) {
+					System.out.println("------------------Get Properties----------");
+					JSONObject msg = new JSONObject();
+					msg.put("handle",2);
+					msg.put("method","GetProperties");
+					msg.put("params" , new JSONObject());
+			    	msg.put("outKey", -1);
+			    	msg.put("jsonrpc", "2.0");
+			    	msg.put("id", 5);
+			    	ws.sendText(msg.toString());    	
+    }
+    
+    
+    public static void getHyperCubeData(WebSocket ws) {
+		    	System.out.println("-------------------------- GET Hypercube Data -------------------");
+		    	JSONObject msg = new JSONObject();
+		    	msg.put("handle", 2);
+		    	msg.put("method", "GetHyperCubeData");
+		    	JSONObject params = new JSONObject();
+		    	params.put("qPath", "/qHyperCubeDef");
+		    	JSONArray a = new JSONArray();
+		    	JSONObject  b = new JSONObject();
+		    	b.put("qLeft", 0);
+		    	b.put("qTop", 0);
+		    	b.put("qWidth", 20);
+		    	b.put("qHeight", 500);
+		    	a.put(b);
+		    	params.put("qPages",a);
+		    	msg.put("params",params);
+		    	msg.put("outKey", -1);
+		    	msg.put("jsonrpc", "2.0");
+		    	msg.put("id", 6);
+		        ws.sendText(msg.toString());	
+}
+
+public static void exportData(WebSocket ws) {
 			    	System.out.println("-------------------------- Export Data -------------------");
 			    	JSONObject msg = new JSONObject();
 			    	msg.put("handle", 2);
@@ -367,52 +364,43 @@ public class EchoClient
 			        ws.sendText(msg.toString());	
     }
     
+    
+	public static void retreiveHeaders(StringBuilder headers) {
+		JSONObject jsonObj = new JSONObject(message);
+        JSONObject qHyperCubDefinition =  jsonObj.getJSONObject("result").getJSONObject("qProp").getJSONObject("qHyperCubeDef");
+        JSONArray qDimensions = qHyperCubDefinition.getJSONArray("qDimensions");
+        for(int i = 0; i < qDimensions.length(); i++) {
+        			JSONArray labels = qDimensions.getJSONObject(i).getJSONObject("qDef").getJSONArray("qFieldLabels");
+        			if(labels.length() > 0) {		
+        				headers.append(labels.getString(0));
+        			}		
+        }
+        JSONArray qMeasures = qHyperCubDefinition.getJSONArray("qMeasures");
+        for(int i = 0; i < qMeasures.length(); i++) {
+        				headers.append(qMeasures.getJSONObject(i).getJSONObject("qDef").getString("qLabel"));
+        }
+	}
+    
    
     private static void print_content(HttpsURLConnection con){
     	if(con!=null){
 
     	try {
-
-    	   System.out.println("****** Content of the URL ********");
-    	   BufferedReader br =
-    		new BufferedReader(
-    			new InputStreamReader(con.getInputStream()));
-
-    	   String input;
-
-    	   while ((input = br.readLine()) != null){
-    	      System.out.println(input);
-    	   }
-    	   br.close();
-
+			    	   System.out.println("****** Content of the URL ********");
+			    	   BufferedReader br =
+			    		new BufferedReader(new InputStreamReader(con.getInputStream()));
+			
+			    	   String input;
+			
+			    	   while ((input = br.readLine()) != null){
+			    	      System.out.println(input);
+			    	   }
+			    	   br.close();
     	} catch (IOException e) {
     	   e.printStackTrace();
     	}
 
            }
 
-       }
-
-    public static class TicketDto {
-    	
-    	private String key;
-    	private String val;
-    	public String getKey() {
-    		return key;
-    	}
-    	public void setKey(String key) {
-    		this.key = key;
-    	}
-    	public String getVal() {
-    		return val;
-    	}
-    	public void setVal(String val) {
-    		this.val = val;
-    	}
-
-
-    	
-    }
-
-    
+       }    
 }

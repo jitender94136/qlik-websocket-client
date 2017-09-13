@@ -39,5 +39,32 @@ public class WriteCSV {
 				}
 		}
 	}
+	
+	
+	public static String generateHTML(StringBuilder headers,List<List<String>> serverResponseList) {
+		StringBuilder strHTML= new StringBuilder();
+		
+		strHTML.append("<table style='border:1px solid #ccc'><thead style='border:1px solid #ccc'><tr>");
+		String arrStr[] = headers.toString().split(",");
+		for(int i=1;i<arrStr.length;i++) {
+			strHTML.append("<th style='border:1px solid #ccc'>");
+			strHTML.append(arrStr[i]);
+			strHTML.append("</th>");
+		}	
+		strHTML.append("</tr></thead>");
+		strHTML.append("<tbody style='border:1px solid #ccc'>");
+		for(List<String> qTextList : serverResponseList) {
+			strHTML.append("<tr>");
+			for(int j = 0; j < qTextList.size(); j++) {
+				strHTML.append("<td style='border:1px solid #ccc'>");
+				strHTML.append(qTextList.get(j));
+				strHTML.append("</td>");
+			}
+			strHTML.append("</tr>");
+		}						
+		strHTML.append("</tbody></table>");
+		
+		return strHTML.toString();
+	}
 
 }

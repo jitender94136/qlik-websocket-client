@@ -25,6 +25,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.net.ssl.HostnameVerifier;
@@ -38,6 +39,15 @@ import javax.net.ssl.TrustManagerFactory;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.googlecode.charts4j.AxisLabels;
+import com.googlecode.charts4j.AxisLabelsFactory;
+import com.googlecode.charts4j.BarChart;
+import com.googlecode.charts4j.BarChartPlot;
+import com.googlecode.charts4j.Color;
+import com.googlecode.charts4j.Data;
+import com.googlecode.charts4j.Fills;
+import com.googlecode.charts4j.GCharts;
+import com.googlecode.charts4j.Plots;
 import com.neovisionaries.ws.client.*;
 import com.qlik_websocket_client.email.EmailSender;
 import com.qlik_websocket_client.email.MailMessage;
@@ -68,7 +78,8 @@ public class EchoClient
     /**
      * The echo server on websocket.org.
      */
-    private static final String SERVER = "wss://analytics.1viewinsights.com:4747/app";
+    //private static final String SERVER = "wss://analytics.1viewinsights.com:4747/app";
+	private static final String SERVER = "wss://analytics.1viewinsights.com:4747/app/63777428-ecc1-4fce-9b4f-97be6e2c84ec";
 
     /**
      * The timeout value in milliseconds for socket connection.
@@ -76,67 +87,94 @@ public class EchoClient
     private static final int TIMEOUT = 5000;
 
     /**
+     * The user details..................
+     * 
+     */
+    //"X-Qlik-User","UserDirectory=ONECHANNELUDC; UserId=QLIK219912SACHINONECHANNEL"
+    private static String userDirectory = "ONECHANNELUDC";
+    private static String userId = "QLIK219912SACHINONECHANNEL";
+    
+    /**
      * The entry point of this command line application.
      */
-    public static void main(String[] args) throws Exception
-    {
-        // Connect to the echo server.
-        WebSocket ws = connect();
-
-        // The standard input via BufferedReader.
-        BufferedReader in = getInput();
-
-        // A text read from the standard input.
-        String text;
-
-//        // Read lines until "exit" is entered.
-//        while ((text = in.readLine()) != null)
-//        {
-//            // If the input string is "exit".
-//            if (text.equals("exit"))
-//            {
-//                // Finish this application.
-//                break;
-//            }
-//
-//            // Send the text to the server.
-//            System.out.println("before sending text to server");		
-//            		ws.sendText(text);
-//            System.out.println("after sending text to server ");		
-//        }
-        if(ws.isOpen()) {
-        		System.out.println("starting hits.-------------");
-		        getDocList(ws);
-		        Thread.sleep(3000);
-		        openDoc(ws);
-		        Thread.sleep(3000);
-		        getAllInfos(ws);
-		        Thread.sleep(3000);
-		        getObject(ws);
-		        Thread.sleep(3000);
-		        getProperties(ws);
-		        Thread.sleep(3000);
-		        StringBuilder  headers = new StringBuilder();
-		        retreiveHeaders(headers);
-		        getHyperCubeData(ws);
-		        Thread.sleep(5000);
-		        converHyperCubeToTable(headers);
-		        sendMail();
-		}  
+    public static void main(String[] args) throws Exception {
+    				workWithCharts();
+	}  
         
-        
-
-// Close the web socket.
-// ws.disconnect();
-    }
-
-    
 	
+   public static void workWithTable() {
+	 WebSocket ws = null;
+     try { 
+			       ws = connect();
+			       if(ws.isOpen()) {
+			       		    //getDocList(ws);
+					        //Thread.sleep(3000);
+					        openDoc(ws);
+					        Thread.sleep(3000);
+					        getAllInfos(ws);
+					        Thread.sleep(3000);
+					        getObject(ws);
+					        Thread.sleep(3000);
+					        getProperties(ws);
+					        Thread.sleep(3000);
+					        StringBuilder  headers = new StringBuilder();
+					        retreiveHeaders(headers);
+					        getHyperCubeData(ws);
+					        Thread.sleep(5000);
+					        //converHyperCubeToTable(headers);
+					        //sendMail();
+					        String html = converHyperCubeToHTML(headers);
+					        sendMail(html);
+       	}  
+     } catch(Exception e) {
+    	 		e.printStackTrace();
+     } finally {
+    	 		if(ws != null) {
+    	 			ws.disconnect();
+    	 		}
+     }
+}
+
+   public static void workWithCharts() {
+	 WebSocket ws = null;
+     try { 
+			       ws = connect();
+			       if(ws.isOpen()) {
+			       		System.out.println("starting hits.-------------");
+					        //getDocList(ws);
+					        //Thread.sleep(3000);
+					        openDoc(ws);
+					        Thread.sleep(3000);
+					        getAllInfos(ws);
+					        Thread.sleep(3000);
+					        getObject(ws);
+					        Thread.sleep(3000);
+					        getProperties(ws);
+					        Thread.sleep(3000);
+					        StringBuilder  headers = new StringBuilder();
+					        retreiveHeaders(headers);
+					        getHyperCubeData(ws);
+					        Thread.sleep(5000);
+					        //converHyperCubeToTable(headers);
+					        //sendMail();
+					        String labels[] = headers.toString().substring(1).split(",");
+					        List<List<String>> hyperCubeList = convertHyperCubeToList();
+					        String barChartUrl = generateBarChart(labels,hyperCubeList);
+					        String html = "<br/><br/>"+"<img src='"+barChartUrl+"'  />"+"<br/><br/>";
+					        sendMail(html);
+       	}  
+     } catch(Exception e) {
+    	 		e.printStackTrace();
+     } finally {
+    	 		if(ws != null) {
+    	 			ws.disconnect();
+    	 		}
+     }
+   }
    
-
-
-
-	/**
+   
+   
+   /**
      * Connect to the server.
      */
     private static WebSocket connect() throws Exception
@@ -176,7 +214,8 @@ public class EchoClient
                 
             })
             .addExtension(WebSocketExtension.PERMESSAGE_DEFLATE)
-            .addHeader("X-Qlik-User","UserDirectory=QLISRV; UserId=GOPAL")
+            //.addHeader("X-Qlik-User","UserDirectory=QLIKSRV; UserId=GOPAL")
+            .addHeader("X-Qlik-User","UserDirectory="+userDirectory+"; UserId="+userId+"")
             .connect();
         System.out.println(ws.getAgreedProtocol() +"  "+ws.isOpen());
         if(ws.isOpen()) {
@@ -187,30 +226,45 @@ public class EchoClient
     
     
     public static void converHyperCubeToTable(StringBuilder headers) {
-    		
-    	 	JSONObject jsonObj = new JSONObject(message);
-	        JSONObject result =  jsonObj.getJSONObject("result");
-	        JSONObject arrayObj = (JSONObject)result.getJSONArray("qDataPages").get(0);
-	        JSONArray qMatrixArray = arrayObj.getJSONArray("qMatrix");
-	        JSONObject qAreaObject = arrayObj.getJSONObject("qArea");
-	        int width  = qAreaObject.getInt("qWidth");
-	        List<List<String>> stringList = new ArrayList<>();
-	        for(int i = 0; i < qMatrixArray.length(); i++) {
-	        			System.out.println(qMatrixArray.getJSONArray(i).toString());
-	        			JSONArray row = qMatrixArray.getJSONArray(i);
-	        			System.out.println(row.toString());
-	        			List<String> qTextList = new ArrayList<>();
-	        			for(int j = 0; j < width; j++) {
-	        					String qText = row.getJSONObject(j).getString("qText");
-	        					qTextList.add(qText);
-	        			}
-	        			stringList.add(qTextList);
-	        }
+    	 	List<List<String>> stringList = convertHyperCubeToList();
 	        System.out.println("Size of the list "+stringList.size());
 	        System.out.println("headers ---> "+headers.toString());
 	        WriteCSV.writeCSV(headers,stringList);
 	}
 
+  
+    public static String converHyperCubeToHTML(StringBuilder headers) {
+		String strHTML = "";
+		List<List<String>> stringList = convertHyperCubeToList();
+        WriteCSV.writeCSV(headers,stringList);
+        strHTML = WriteCSV.generateHTML(headers, stringList); 
+        return strHTML;
+}
+    
+    
+    public static List<List<String>>  convertHyperCubeToList() {
+    	JSONObject jsonObj = new JSONObject(message);
+        JSONObject result =  jsonObj.getJSONObject("result");
+        JSONObject arrayObj = (JSONObject)result.getJSONArray("qDataPages").get(0);
+        JSONArray qMatrixArray = arrayObj.getJSONArray("qMatrix");
+        JSONObject qAreaObject = arrayObj.getJSONObject("qArea");
+        int width  = qAreaObject.getInt("qWidth");
+        List<List<String>> stringList = new ArrayList<>();
+        for(int i = 0; i < qMatrixArray.length(); i++) {
+        			System.out.println(qMatrixArray.getJSONArray(i).toString());
+        			JSONArray row = qMatrixArray.getJSONArray(i);
+        			List<String> qTextList = new ArrayList<>();
+        			for(int j = 0; j < width; j++) {
+        					String qText = row.getJSONObject(j).getString("qText");
+        					qTextList.add(qText);
+        			}
+        			stringList.add(qTextList);
+        }
+        System.out.println("Size of the list "+stringList.size());
+        return stringList;
+    }
+    
+    
     
     public static  SSLSocketFactory setCertificateConfiguration() {
 					SSLSocketFactory sslSocketFactory = null;
@@ -280,9 +334,14 @@ public class EchoClient
     		JSONObject msg = new JSONObject();
     		msg.put("method", "OpenDoc");
     		msg.put("handle", -1);
-    		JSONArray jsonArray = new JSONArray();
-    		jsonArray.put("d9a01504-d14d-42dc-abe6-75f0824a18db");
-    		msg.put("params",jsonArray);
+    		//JSONArray jsonArray = new JSONArray();
+    		//63777428-ecc1-4fce-9b4f-97be6e2c84ec  Bose_nPrinting
+    		//d9a01504-d14d-42dc-abe6-75f0824a18db  Bose_nPrinting_new
+    		//jsonArray.put("63777428-ecc1-4fce-9b4f-97be6e2c84ec");
+    		JSONObject jsonObj = new JSONObject();
+    		jsonObj.put("qDocName", "63777428-ecc1-4fce-9b4f-97be6e2c84ec");
+    		//jsonObj.put("qUserName", "QLIKSRV\\GOPAL");
+    		msg.put("params",jsonObj);
     		msg.put("outKey", -1);
     		msg.put("jsonrpc", "2.0");
     		msg.put("id", 2);
@@ -309,15 +368,16 @@ public class EchoClient
     			JSONObject msg = new JSONObject();
     			msg.put("handle",1);
     			msg.put("method","GetObject");
-    			msg.put("params" , new JSONObject().put("qId","CXgReb"));
-		    	msg.put("outKey", -1);
+    			//msg.put("params" , new JSONObject().put("qId","CXgReb"));   request for table.
+    			msg.put("params" , new JSONObject().put("qId","hWArAV"));  // request for barchart.
+    			msg.put("outKey", -1);
 		    	msg.put("jsonrpc", "2.0");
 		    	msg.put("id", 4);
 		    	ws.sendText(msg.toString());
 		    	
     }
     
-    
+
     public static void getProperties(WebSocket ws) {
 					System.out.println("------------------Get Properties----------");
 					JSONObject msg = new JSONObject();
@@ -392,9 +452,7 @@ public static void exportData(WebSocket ws) {
 			    	   System.out.println("****** Content of the URL ********");
 			    	   BufferedReader br =
 			    		new BufferedReader(new InputStreamReader(con.getInputStream()));
-			
 			    	   String input;
-			
 			    	   while ((input = br.readLine()) != null){
 			    	      System.out.println(input);
 			    	   }
@@ -436,5 +494,91 @@ public static void exportData(WebSocket ws) {
     			e.printStackTrace();
     	}
     }
+    
+    public static void sendMail(String html) {
+    	try {
+				MailMessage message = new MailMessage();
+				message.setSender("OnePrinting Team");
+				message.setInternetAddress("no-reply@channelplay.in");
+				String emailId = "jitender.singh1@channelplay.in";
+				message.setRecipientTo(emailId);
+				String ccEmailIds = "lalit.giani@channelplay.in";
+				System.out.println(ccEmailIds);
+				message.setRecipientCC(ccEmailIds);
+				StringBuilder mailBody = new StringBuilder();
+				mailBody.append("Hi Team <br/>");
+				mailBody.append("This is a test mail. <br/>");
+				mailBody.append("Please Ignore. <br/>");
+				mailBody.append(html);
+				message.setTextMessage(mailBody.toString());
+				message.setSubject("Test Mail From OnePrinting");
+				File[] files = new File[1];
+				files[0] = new File("E:/Github3/Output.csv");
+				message.setFileAttachment(files);
+				String fileAttachmentContentType [] = new String[]  {"text/csv"};
+				message.setFileAttachmentContentType(fileAttachmentContentType);
+				String filesName[] = new String[] {"TestFile.csv"};
+				message.setFileAttachmentFileName(filesName);
+				System.out.println(".................before sending mail...........");
+				EmailSender.sendMail(message);
+    	} catch(Exception e) {
+    			e.printStackTrace();
+    	}
+    }
+    
+    
+    public static String generateBarChart(String[] labels,List<List<String>> hyperCubeDataList)
+    {
+      List<String> rowData = new ArrayList<String>();	
+      List<Integer> colData = new ArrayList<Integer>();
+      for(List<String> rowList : hyperCubeDataList) {
+    	  			for(int i = 0; i < rowList.size(); i++) {
+    	  						if(i == 0) 
+    	  							rowData.add(rowList.get(0));
+    	  						else 
+    	  							colData.add(Integer.parseInt(rowList.get(i)));
+    	  			}
+      }
+      BarChartPlot data1 = Plots.newBarChartPlot(Data.newData(colData), Color.newColor("35ff31"), "");
+
+//		This code is for setting bar color according to the score value.      
+//      int j = 0;
+//      for (Integer score : scoreList) {
+//        if (score.intValue() >= 85) {
+//          data1.setColor(Color.newColor("04FF42"), j);
+//        } else
+//          data1.setColor(Color.newColor("FD0001"), j);
+//        j++;
+//      }
+      
+//		This code is for setting text marker on the bar.
+//      for (i = 0; i < campaignScoreArray.length - 4; i++) {
+//        data1.addTextMarker(campaignScoreArray[i] + "%", Color.BLACK, 10, i);
+//      }
+      
+      BarChart chart = GCharts.newBarChart(new BarChartPlot[] { data1 });
+      
+      AxisLabels xAxisLabel = AxisLabelsFactory.newAxisLabels(labels[0], 50.0D);
+      AxisLabels yAxisLabel = AxisLabelsFactory.newAxisLabels(labels[1], 50.0D);
+      
+      chart.addXAxisLabels(AxisLabelsFactory.newAxisLabels(rowData));
+      chart.addXAxisLabels(xAxisLabel);
+      List<String> yAxisLabels = new ArrayList<String>();
+      chart.addYAxisLabels(AxisLabelsFactory.newAxisLabels(yAxisLabels));
+      chart.addYAxisLabels(yAxisLabel);
+      
+      chart.setBarWidth(BarChart.AUTO_RESIZE);
+      chart.setSpaceBetweenGroupsOfBars(20);
+      
+      chart.setSize(600, 300);
+      chart.setDataStacked(false);
+      
+      chart.setTitle("Test Chart", Color.GREEN, 15);
+      chart.setBackgroundFill(Fills.newSolidFill(Color.WHITE));
+      chart.setAreaFill(Fills.newSolidFill(Color.WHITE));
+      System.out.println("chart url "+chart.toURLString());
+      return chart.toURLForHTML();
+    }
+    
     
 }

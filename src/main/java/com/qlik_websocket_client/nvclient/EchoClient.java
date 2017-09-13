@@ -468,7 +468,7 @@ public static void exportData(WebSocket ws) {
     public static void sendMail() {
     	try {
 				MailMessage message = new MailMessage();
-				message.setSender("OnePrinting Team");
+				message.setSender("1Printing Team");
 				message.setInternetAddress("no-reply@channelplay.in");
 				String emailId = "jitender.singh1@channelplay.in";
 				message.setRecipientTo(emailId);
@@ -480,7 +480,7 @@ public static void exportData(WebSocket ws) {
 				mailBody.append("This is a test mail.\n");
 				mailBody.append("Please Ignore.\n");
 				message.setTextMessage(mailBody.toString());
-				message.setSubject("Test Mail From OnePrinting");
+				message.setSubject("Test Mail From 1Printing");
 				File[] files = new File[1];
 				files[0] = new File("E:/Github3/Output.csv");
 				message.setFileAttachment(files);
@@ -498,7 +498,7 @@ public static void exportData(WebSocket ws) {
     public static void sendMail(String html) {
     	try {
 				MailMessage message = new MailMessage();
-				message.setSender("OnePrinting Team");
+				message.setSender("1Printing Team");
 				message.setInternetAddress("no-reply@channelplay.in");
 				String emailId = "jitender.singh1@channelplay.in";
 				message.setRecipientTo(emailId);
@@ -511,7 +511,7 @@ public static void exportData(WebSocket ws) {
 				mailBody.append("Please Ignore. <br/>");
 				mailBody.append(html);
 				message.setTextMessage(mailBody.toString());
-				message.setSubject("Test Mail From OnePrinting");
+				message.setSubject("Test Mail From 1Printing");
 				File[] files = new File[1];
 				files[0] = new File("E:/Github3/Output.csv");
 				message.setFileAttachment(files);
